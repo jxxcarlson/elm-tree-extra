@@ -36,7 +36,7 @@ import Tree.Zipper as Zipper exposing (Zipper)
 
 {-| The function
 
-    attach gte targetNode subTree tree
+    attach bigger targetNode subTree tree
 
 seeks to attach a subTree to a given tree
 is such a way that the parent of the subtree
@@ -63,15 +63,14 @@ Here is an example:
 
 -}
 attach : (a -> a -> Bool) -> a -> Tree a -> Tree a -> Maybe (Tree a)
-attach gte targetNode subTree tree =
+attach bigger targetNode subTree tree =
     let
         subTreeRoot =
             Zipper.fromTree subTree
                 |> Zipper.root
                 |> Zipper.label
-                |> Debug.log "subTreeRoot"
     in
-    case findAttachmentNode gte subTreeRoot targetNode tree of
+    case findAttachmentNode bigger subTreeRoot targetNode tree of
         Nothing ->
             Nothing
 
@@ -108,7 +107,7 @@ appendTreeToFocus t_ z =
 
 -}
 findAttachmentNode : (a -> a -> Bool) -> a -> a -> Tree a -> Maybe a
-findAttachmentNode gte_ node targetNode tree =
+findAttachmentNode bigger_ node targetNode tree =
     let
         zipper =
             Zipper.fromTree tree |> setFocus targetNode
@@ -119,7 +118,7 @@ findAttachmentNode gte_ node targetNode tree =
                     False
 
                 Just b_ ->
-                    gte_ a b_
+                    bigger_ a b_
 
         initialState =
             { zipper = zipper, target = Just targetNode, node = node, gte = gte }
@@ -209,10 +208,10 @@ spanningTree nodeList tree =
             , root = root
             }
     in
-    loop initialState nextSPState
+    loop initialState nextSpanningState
 
 
-type alias SPState a =
+type alias SpanningState a =
     { nodeList : List a
     , zipper : Maybe (Zipper a)
     , tree : Tree a
@@ -220,8 +219,8 @@ type alias SPState a =
     }
 
 
-nextSPState : SPState a -> Step (SPState a) (Maybe (Tree a))
-nextSPState state =
+nextSpanningState : SpanningState a -> Step (SpanningState a) (Maybe (Tree a))
+nextSpanningState state =
     case ( state.root, state.nodeList ) of
         ( Nothing, _ ) ->
             Done Nothing
@@ -302,10 +301,6 @@ setFocus node zipper =
     Zipper.findFromRoot (\label -> label == node) zipper
 
 
-
---- MORE STUFF ---
-
-
 {-|
 
     > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
@@ -341,15 +336,12 @@ moveSubTreeInZipper from to zipper =
 
 {-| This will terminate if the root of the zipper has blockType Document,
 which is greatest in the partial order
-
-TODO: return a Maybe Block instead, with Nothing returned if the root does not satisfy the above assumption.
-
 -}
 findValidParent : (a -> a -> Bool) -> a -> Tree a -> Maybe a
 findValidParent gte node tree =
     let
-        ns : ST a -> Step (ST a) (ST a)
-        ns state =
+        nextValidParentState : ValidParentState a -> Step (ValidParentState a) (ValidParentState a)
+        nextValidParentState state =
             let
                 gte_ : a -> Maybe a -> Bool
                 gte_ a b_ =
@@ -382,36 +374,13 @@ findValidParent gte node tree =
         , zipper = initialZipper
         , count = 0
         }
-        ns
+        nextValidParentState
         |> .zipper
         |> Maybe.map Zipper.label
 
 
-type alias ST a =
+type alias ValidParentState a =
     { node : a, zipper : Maybe (Zipper a), count : Int }
-
-
-
--- LOOP
-
-
-type Step state a
-    = Loop state
-    | Done a
-
-
-loop : state -> (state -> Step state a) -> a
-loop s nextState =
-    case nextState s of
-        Loop s_ ->
-            loop s_ nextState
-
-        Done b ->
-            b
-
-
-
---- FROM HTREE
 
 
 {-|
@@ -432,7 +401,7 @@ depth t =
         0
 
     else
-        1 + listMax (List.map depth c)
+        1 + maxiumumPositiveInteger (List.map depth c)
 
 
 {-| Number of notes in a tree
@@ -456,8 +425,10 @@ nodeCount t =
         1 + List.sum (List.map nodeCount c)
 
 
-listMax : List Int -> Int
-listMax ints =
+{-| maximum integer in a list of non-negative integers
+-}
+maxiumumPositiveInteger : List Int -> Int
+maxiumumPositiveInteger ints =
     List.foldl (\i acc -> max i acc) 0 ints
 
 
@@ -483,3 +454,22 @@ tagWithDepthHelp k t =
             Tree.children t
     in
     Tree.tree ( Tree.label t, k ) (List.map (\t_ -> tagWithDepthHelp (k + 1) t_) c)
+
+
+
+-- LOOP
+
+
+type Step state a
+    = Loop state
+    | Done a
+
+
+loop : state -> (state -> Step state a) -> a
+loop s nextState =
+    case nextState s of
+        Loop s_ ->
+            loop s_ nextState
+
+        Done b ->
+            b
