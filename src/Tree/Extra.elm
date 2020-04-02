@@ -1,23 +1,31 @@
-module Tree.Extra exposing (moveSubTree, removeSubTree, spanningTree, attach)
+module Tree.Extra exposing
+    ( moveSubTree, removeSubTree, spanningTree, attach
+    , depth, nodeCount, tagWithDepth
+    )
 
 {-| **Tree.Extra** provides functions for manipulating rose trees as defined
 in [zwilias/elm-rosetree](attach gte targetNode subTree tree), e.g, `removeSubTree` and `moveSubTree`. In certain
 cases, one assumes given a function that defines a partial order on nodes,
 or better said, labels of nodes:
 
-    greaterThan : a -> a -> Bool
+    bigger : a -> a -> Bool
 
 For `Tree Int`, one can use
 
-    greaterThan =
+    bigger =
         (>)
 
 See the function `attach` for an example of this.
 
 
-## Functions
+## Manipulate Trees
 
 @docs moveSubTree, removeSubTree, spanningTree, attach
+
+
+## Info on Trees
+
+@docs depth, nodeCount, tagWithDepth
 
 -}
 
@@ -42,13 +50,13 @@ has the proper order:
 
 Here is an example:
 
-    > c = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     > Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
 
-    > d = t 3 [ s 4, s 5]
+    > x = t 3 [ s 4, s 5]
     > Tree 3 [Tree 4 [],Tree 5 []]
 
-    > attach (<) 6 d c
+    > attach (<) 6 x a
     > subTreeRoot: 3
     > attachmentNode: 2
     > Just (Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []],Tree 3 [Tree 4 [],Tree 5 []]]])
@@ -92,10 +100,10 @@ appendTreeToFocus t_ z =
 
 {-|
 
-    > c = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
 
-    > findAttachmentNode (<) 3  6 c
+    > findAttachmentNode (<) 3  6 a
     Just 2 : Maybe number
 
 -}
@@ -146,10 +154,10 @@ nextATState state =
 
 {-|
 
-    > c = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
 
-    > removeSubTree 3 c |> Maybe.andThen (removeSubTree 5)
+    > removeSubTree 3 a |> Maybe.andThen (removeSubTree 5)
     Just (Tree 1 [Tree 2 [Tree 4 [Tree 6 []]]])
 
 -}
@@ -168,8 +176,11 @@ removeSubTree a tree =
 {-| Compute the smallest subtree of the given tree
 which contains all the nodes of the nodeList.
 
-    > c = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
+
+    > spanningTree [3, 5] a
+    Just (Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]])
 
 -}
 spanningTree : List a -> Tree a -> Maybe (Tree a)
@@ -297,10 +308,10 @@ setFocus node zipper =
 
 {-|
 
-    > c = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
 
-    > moveSubTree 4 1 c
+    > moveSubTree 4 1 a
     Just (Tree 1 [Tree 2 [Tree 3 []],Tree 4 [Tree 5 [],Tree 6 []]])
 
 -}
@@ -397,3 +408,78 @@ loop s nextState =
 
         Done b ->
             b
+
+
+
+--- FROM HTREE
+
+
+{-|
+
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+
+    > depth a
+    3
+
+-}
+depth : Tree a -> Int
+depth t =
+    let
+        c =
+            Tree.children t
+    in
+    if c == [] then
+        0
+
+    else
+        1 + listMax (List.map depth c)
+
+
+{-| Number of notes in a tree
+
+        > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+
+        > nodeCount a
+        6
+
+-}
+nodeCount : Tree a -> Int
+nodeCount t =
+    let
+        c =
+            Tree.children t
+    in
+    if c == [] then
+        1
+
+    else
+        1 + List.sum (List.map nodeCount c)
+
+
+listMax : List Int -> Int
+listMax ints =
+    List.foldl (\i acc -> max i acc) 0 ints
+
+
+{-| Transforms a tree of items into
+a tree of tuples of the form `(a, k)`, where `k` is the
+depth of `a` in the tree.
+
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+
+    > tagWithDepth a
+    > Tree (1,0) [Tree (2,1) [Tree (3,2) [],Tree (4,2) [Tree (5,3) [],Tree (6,3) []]]]
+
+-}
+tagWithDepth : Tree a -> Tree ( a, Int )
+tagWithDepth t =
+    tagWithDepthHelp 0 t
+
+
+tagWithDepthHelp : Int -> Tree a -> Tree ( a, Int )
+tagWithDepthHelp k t =
+    let
+        c =
+            Tree.children t
+    in
+    Tree.tree ( Tree.label t, k ) (List.map (\t_ -> tagWithDepthHelp (k + 1) t_) c)
