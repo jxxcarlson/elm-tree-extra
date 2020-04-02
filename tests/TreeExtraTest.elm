@@ -21,26 +21,34 @@ a =
 suite : Test
 suite =
     describe "The Tree.Extra module"
-        [ test "moveSubTree" <|
+        [ test "moveSubtree" <|
             \_ ->
-                moveSubTree 4 1 a
+                moveSubtree 4 1 a
                     |> Expect.equal (Just (t 1 [ t 2 [ t 3 [] ], t 4 [ t 5 [], t 6 [] ] ]))
-        , test "removeSubTree" <|
+        , test "removeSubtree" <|
             \_ ->
-                removeSubTree 3 a
-                    |> Maybe.andThen (removeSubTree 5)
+                removeSubtree 3 a
+                    |> Maybe.andThen (removeSubtree 5)
                     |> Expect.equal (Just (t 1 [ t 2 [ t 4 [ t 6 [] ] ] ]))
         , test "spanningTree" <|
             \_ ->
                 spanningTree [ 3, 5 ] a
                     |> Expect.equal (Just (t 2 [ t 3 [], t 4 [ t 5 [], t 6 [] ] ]))
-        , test "attach" <|
+        , test "attachSubtree" <|
+            let
+                x =
+                    t 2 [ s 3, s 4 ]
+            in
+            \_ ->
+                attachSubtree 1 x a
+                    |> Expect.equal (Just (t 1 [ t 2 [ t 3 [], t 4 [ t 5 [], t 6 [] ] ], t 2 [ t 3 [], t 4 [] ] ]))
+        , test "attachSubtreeInOrder" <|
             let
                 x =
                     t 3 [ s 4, s 5 ]
             in
             \_ ->
-                attach (<) 6 x a
+                attachSubtreeInOrder (<) 6 x a
                     |> Expect.equal (Just (t 1 [ t 2 [ t 3 [], t 4 [ t 5 [], t 6 [] ], t 3 [ t 4 [], t 5 [] ] ] ]))
         , test "depth" <|
             \_ ->

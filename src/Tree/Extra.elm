@@ -1,26 +1,20 @@
 module Tree.Extra exposing
-    ( moveSubTree, removeSubTree, spanningTree, attach
+    ( attachSubtree, removeSubtree, moveSubtree, spanningTree
+    , attachSubtreeInOrder
     , depth, nodeCount, tagWithDepth
     )
 
-{-| **Tree.Extra** provides functions for manipulating rose trees as defined
-in [zwilias/elm-rosetree](attach gte targetNode subTree tree), e.g, `removeSubTree` and `moveSubTree`. In certain
-cases, one assumes given a function that defines a partial order on nodes,
-or better said, labels of nodes:
-
-    bigger : a -> a -> Bool
-
-For `Tree Int`, one can use
-
-    bigger =
-        (>)
-
-See the function `attach` for an example of this.
+{-|
 
 
 ## Manipulate Trees
 
-@docs moveSubTree, removeSubTree, spanningTree, attach
+@docs attachSubtree, removeSubtree, moveSubtree, spanningTree
+
+
+## Manipulate using a partial order on nodes
+
+@docs attachSubtreeInOrder
 
 
 ## Info on Trees
@@ -34,13 +28,38 @@ import Tree exposing (Tree)
 import Tree.Zipper as Zipper exposing (Zipper)
 
 
+{-|
+
+    > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
+    > x = t 2 [ s 3, s 4]
+
+    > attachSubtree 1 x a
+    Just (Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]],Tree 2 [Tree 3 [],Tree 4 []]])
+
+-}
+attachSubtree : a -> Tree a -> Tree a -> Maybe (Tree a)
+attachSubtree targetNode subTree tree =
+    let
+        zipper =
+            Zipper.fromTree tree |> setFocus targetNode
+
+        zipper2 =
+            Maybe.map2 appendTreeToFocus (Just subTree) zipper
+    in
+    Maybe.map Zipper.toTree zipper2
+
+
 {-| The function
 
-    attach bigger targetNode subTree tree
+    attachSubtreeInOrder bigger targetNode subTree tree
 
-seeks to attach a subTree to a given tree
+seeks to attach a subtree to a given tree
 is such a way that the parent of the subtree
-has the proper order:
+has the proper order with respect to the function
+
+    bigger : a -> a -> Bool
+
+namely,
 
   - it is greater than the root of the subtree
 
@@ -56,14 +75,12 @@ Here is an example:
     > x = t 3 [ s 4, s 5]
     > Tree 3 [Tree 4 [],Tree 5 []]
 
-    > attach (<) 6 x a
-    > subTreeRoot: 3
-    > attachmentNode: 2
+    > attachSubtreeInOrder (<) 6 x a
     > Just (Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []],Tree 3 [Tree 4 [],Tree 5 []]]])
 
 -}
-attach : (a -> a -> Bool) -> a -> Tree a -> Tree a -> Maybe (Tree a)
-attach bigger targetNode subTree tree =
+attachSubtreeInOrder : (a -> a -> Bool) -> a -> Tree a -> Tree a -> Maybe (Tree a)
+attachSubtreeInOrder bigger targetNode subTree tree =
     let
         subTreeRoot =
             Zipper.fromTree subTree
@@ -156,12 +173,12 @@ nextATState state =
     > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
 
-    > removeSubTree 3 a |> Maybe.andThen (removeSubTree 5)
+    > removeSubtree 3 a |> Maybe.andThen (removeSubtree 5)
     Just (Tree 1 [Tree 2 [Tree 4 [Tree 6 []]]])
 
 -}
-removeSubTree : a -> Tree a -> Maybe (Tree a)
-removeSubTree a tree =
+removeSubtree : a -> Tree a -> Maybe (Tree a)
+removeSubtree a tree =
     let
         zipper =
             Zipper.fromTree tree
@@ -306,18 +323,18 @@ setFocus node zipper =
     > a = t 1 [ t 2 [ s 3, t 4 [s 5, s 6]]]
     Tree 1 [Tree 2 [Tree 3 [],Tree 4 [Tree 5 [],Tree 6 []]]]
 
-    > moveSubTree 4 1 a
+    > moveSubtree 4 1 a
     Just (Tree 1 [Tree 2 [Tree 3 []],Tree 4 [Tree 5 [],Tree 6 []]])
 
 -}
-moveSubTree : a -> a -> Tree a -> Maybe (Tree a)
-moveSubTree from to tree =
-    moveSubTreeInZipper from to (Zipper.fromTree tree)
+moveSubtree : a -> a -> Tree a -> Maybe (Tree a)
+moveSubtree from to tree =
+    moveSubtreeInZipper from to (Zipper.fromTree tree)
         |> Maybe.map Zipper.toTree
 
 
-moveSubTreeInZipper : a -> a -> Zipper a -> Maybe (Zipper a)
-moveSubTreeInZipper from to zipper =
+moveSubtreeInZipper : a -> a -> Zipper a -> Maybe (Zipper a)
+moveSubtreeInZipper from to zipper =
     let
         refocusedZipper =
             setFocus from zipper
