@@ -93,9 +93,6 @@ attachSubtreeInOrder bigger targetNode subTree tree =
 
         Just attachmentNode ->
             let
-                _ =
-                    Debug.log "attachmentNode" attachmentNode
-
                 zipper =
                     Zipper.fromTree tree |> setFocus attachmentNode
 
